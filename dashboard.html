@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>營收分析 | 洗衣店營收記帳</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="page wide">
+    <div class="topbar">
+      <h1>📊 營收分析</h1>
+      <nav>
+        <a href="entry.html">輸入營收</a>
+        <button class="signout" id="signout-btn">登出</button>
+      </nav>
+    </div>
+
+    <div id="loading" class="loading">載入中...</div>
+
+    <div id="content" style="display:none;">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">本週營收</div>
+          <div class="stat-value" id="stat-week">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">本月營收</div>
+          <div class="stat-value" id="stat-month">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">累計總營收</div>
+          <div class="stat-value" id="stat-total">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">平均每次收款</div>
+          <div class="stat-value" id="stat-avg">$0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-title">近 12 週營收趨勢</p>
+        <div class="chart-wrap">
+          <canvas id="weekly-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-title">近 6 個月營收趨勢</p>
+        <div class="chart-wrap">
+          <canvas id="monthly-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-title">最近收款紀錄</p>
+        <div id="entries-wrap">
+          <table class="entries">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>10/50 硬幣</th>
+                <th>100/500/1000 紙鈔</th>
+                <th style="text-align:right;">總計</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="entries-body"></tbody>
+          </table>
+          <div class="empty-state" id="empty-state" style="display:none;">還沒有任何收款紀錄</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/supabase-client.js"></script>
+  <script>
+    let allRows = [];
+    let weeklyChart, monthlyChart;
+
+    (async () => {
+      await requireSession();
+      await loadData();
+    })();
+
+    document.getElementById("signout-btn").addEventListener("click", signOut);
+
+    function formatMoney(n) {
+      return "$" + Math.round(n).toLocaleString("zh-TW");
+    }
+
+    // 取得某日期所在那一週的星期一 (ISO 週)
+    function weekStart(dateStr) {
+      const d = new Date(dateStr + "T00:00:00");
+      const day = d.getDay() || 7; // 週日算 7
+      d.setDate(d.getDate() - day + 1);
+      return d.toISOString().slice(0, 10);
+    }
+
+    function monthStart(dateStr) {
+      return dateStr.slice(0, 7); // YYYY-MM
+    }
+
+    function rowTotal(row) {
+      return row.coin_10 * 10 + row.coin_50 * 50 + row.bill_100 * 100 + row.bill_500 * 500 + row.bill_1000 * 1000;
+    }
+
+    async function loadData() {
+      const { data, error } = await supabaseClient
+        .from("collections")
+        .select("*")
+        .order("collected_at", { ascending: false });
+
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("content").style.display = "block";
+
+      if (error) {
+        document.getElementById("content").innerHTML = "<p class='error-msg'>載入失敗:" + error.message + "</p>";
+        return;
+      }
+
+      allRows = data || [];
+      renderStats();
+      renderWeeklyChart();
+      renderMonthlyChart();
+      renderTable();
+    }
+
+    function renderStats() {
+      const today = new Date().toISOString().slice(0, 10);
+      const thisWeek = weekStart(today);
+      const thisMonth = monthStart(today);
+
+      let weekTotal = 0, monthTotal = 0, grandTotal = 0;
+      allRows.forEach((row) => {
+        const t = rowTotal(row);
+        grandTotal += t;
+        if (weekStart(row.collected_at) === thisWeek) weekTotal += t;
+        if (monthStart(row.collected_at) === thisMonth) monthTotal += t;
+      });
+
+      document.getElementById("stat-week").textContent = formatMoney(weekTotal);
+      document.getElementById("stat-month").textContent = formatMoney(monthTotal);
+      document.getElementById("stat-total").textContent = formatMoney(grandTotal);
+      document.getElementById("stat-avg").textContent = allRows.length
+        ? formatMoney(grandTotal / allRows.length)
+        : "$0";
+    }
+
+    function lastNWeeks(n) {
+      const weeks = [];
+      const d = new Date();
+      for (let i = n - 1; i >= 0; i--) {
+        const wd = new Date(d);
+        wd.setDate(wd.getDate() - i * 7);
+        weeks.push(weekStart(wd.toISOString().slice(0, 10)));
+      }
+      return [...new Set(weeks)];
+    }
+
+    function lastNMonths(n) {
+      const months = [];
+      const d = new Date();
+      for (let i = n - 1; i >= 0; i--) {
+        const md = new Date(d.getFullYear(), d.getMonth() - i, 1);
+        months.push(md.toISOString().slice(0, 7));
+      }
+      return months;
+    }
+
+    function renderWeeklyChart() {
+      const weeks = lastNWeeks(12);
+      const totals = weeks.map((w) =>
+        allRows.filter((r) => weekStart(r.collected_at) === w).reduce((sum, r) => sum + rowTotal(r), 0)
+      );
+
+      if (weeklyChart) weeklyChart.destroy();
+      weeklyChart = new Chart(document.getElementById("weekly-chart"), {
+        type: "bar",
+        data: {
+          labels: weeks.map((w) => w.slice(5)),
+          datasets: [{ label: "週營收", data: totals, backgroundColor: "#2563eb", borderRadius: 4 }],
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } },
+        },
+      });
+    }
+
+    function renderMonthlyChart() {
+      const months = lastNMonths(6);
+      const totals = months.map((m) =>
+        allRows.filter((r) => monthStart(r.collected_at) === m).reduce((sum, r) => sum + rowTotal(r), 0)
+      );
+
+      if (monthlyChart) monthlyChart.destroy();
+      monthlyChart = new Chart(document.getElementById("monthly-chart"), {
+        type: "line",
+        data: {
+          labels: months,
+          datasets: [{
+            label: "月營收",
+            data: totals,
+            borderColor: "#16a34a",
+            backgroundColor: "rgba(22,163,74,0.1)",
+            fill: true,
+            tension: 0.3,
+          }],
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } },
+        },
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("entries-body");
+      const emptyState = document.getElementById("empty-state");
+      tbody.innerHTML = "";
+
+      if (!allRows.length) {
+        emptyState.style.display = "block";
+        return;
+      }
+      emptyState.style.display = "none";
+
+      allRows.slice(0, 30).forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.collected_at}</td>
+          <td>${row.coin_10} / ${row.coin_50}</td>
+          <td>${row.bill_100} / ${row.bill_500} / ${row.bill_1000}</td>
+          <td class="amount">${formatMoney(rowTotal(row))}</td>
+          <td><button class="icon-btn danger" data-id="${row.id}">刪除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll("button[data-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("確定要刪除這筆紀錄嗎?")) return;
+          const { error } = await supabaseClient.from("collections").delete().eq("id", btn.dataset.id);
+          if (error) {
+            alert("刪除失敗:" + error.message);
+            return;
+          }
+          await loadData();
+        });
+      });
+    }
+  </script>
+</body>
+</html>

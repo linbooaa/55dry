@@ -1,0 +1,29 @@
+-- 在 Supabase 專案的 SQL Editor 貼上並執行這整份檔案
+
+create table collections (
+  id uuid primary key default gen_random_uuid(),
+  collected_at date not null,
+  coin_10 integer not null default 0,
+  coin_50 integer not null default 0,
+  bill_100 integer not null default 0,
+  bill_500 integer not null default 0,
+  bill_1000 integer not null default 0,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+-- 開啟 Row Level Security,預設所有人都不能存取
+alter table collections enable row level security;
+
+-- 只允許「已登入」的使用者讀寫(登入帳號在下方步驟建立,只給家人使用)
+create policy "authenticated read" on collections
+  for select using (auth.role() = 'authenticated');
+
+create policy "authenticated insert" on collections
+  for insert with check (auth.role() = 'authenticated');
+
+create policy "authenticated update" on collections
+  for update using (auth.role() = 'authenticated');
+
+create policy "authenticated delete" on collections
+  for delete using (auth.role() = 'authenticated');
