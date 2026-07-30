@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>營收分析 | 洗衣店營收記帳</title>
+<title>營收分析 | 55號洗衣店</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
 <link rel="stylesheet" href="assets/css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -11,9 +12,16 @@
 <body>
   <div class="page wide">
     <div class="topbar">
-      <h1>📊 營收分析</h1>
+      <div class="brand">
+        <span class="brand-badge">📊</span>
+        <div class="brand-text">
+          <span class="brand-name">55號洗衣店</span>
+          <span class="brand-sub">營收分析</span>
+        </div>
+      </div>
       <nav>
         <a href="entry.html">輸入營收</a>
+        <a href="bulk-entry.html">批次補登</a>
         <button class="signout" id="signout-btn">登出</button>
       </nav>
     </div>
@@ -22,20 +30,20 @@
 
     <div id="content" style="display:none;">
       <div class="stat-grid">
-        <div class="stat-card">
-          <div class="stat-label">本週營收</div>
+        <div class="stat-card stat-card--week">
+          <div class="stat-label">📅 本週營收</div>
           <div class="stat-value" id="stat-week">$0</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">本月營收</div>
+        <div class="stat-card stat-card--month">
+          <div class="stat-label">🗓️ 本月營收</div>
           <div class="stat-value" id="stat-month">$0</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">累計總營收</div>
+        <div class="stat-card stat-card--total">
+          <div class="stat-label">💰 累計總營收</div>
           <div class="stat-value" id="stat-total">$0</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">平均每次收款</div>
+        <div class="stat-card stat-card--avg">
+          <div class="stat-label">📈 平均每次收款</div>
           <div class="stat-value" id="stat-avg">$0</div>
         </div>
       </div>
@@ -77,6 +85,14 @@
 
   <script src="assets/js/supabase-client.js"></script>
   <script>
+    const DENOMS = [
+      { key: "coin_10", value: 10 },
+      { key: "coin_50", value: 50 },
+      { key: "bill_100", value: 100 },
+      { key: "bill_500", value: 500 },
+      { key: "bill_1000", value: 1000 },
+    ];
+
     let allRows = [];
     let weeklyChart, monthlyChart;
 
@@ -96,7 +112,7 @@
       const d = new Date(dateStr + "T00:00:00");
       const day = d.getDay() || 7; // 週日算 7
       d.setDate(d.getDate() - day + 1);
-      return d.toISOString().slice(0, 10);
+      return formatLocalDate(d);
     }
 
     function monthStart(dateStr) {
@@ -129,7 +145,7 @@
     }
 
     function renderStats() {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = formatLocalDate(new Date());
       const thisWeek = weekStart(today);
       const thisMonth = monthStart(today);
 
@@ -155,7 +171,7 @@
       for (let i = n - 1; i >= 0; i--) {
         const wd = new Date(d);
         wd.setDate(wd.getDate() - i * 7);
-        weeks.push(weekStart(wd.toISOString().slice(0, 10)));
+        weeks.push(weekStart(formatLocalDate(wd)));
       }
       return [...new Set(weeks)];
     }
@@ -165,7 +181,7 @@
       const d = new Date();
       for (let i = n - 1; i >= 0; i--) {
         const md = new Date(d.getFullYear(), d.getMonth() - i, 1);
-        months.push(md.toISOString().slice(0, 7));
+        months.push(formatLocalDate(md).slice(0, 7));
       }
       return months;
     }
@@ -232,26 +248,94 @@
 
       allRows.slice(0, 30).forEach((row) => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.collected_at}</td>
-          <td>${row.coin_10} / ${row.coin_50}</td>
-          <td>${row.bill_100} / ${row.bill_500} / ${row.bill_1000}</td>
-          <td class="amount">${formatMoney(rowTotal(row))}</td>
-          <td><button class="icon-btn danger" data-id="${row.id}">刪除</button></td>
-        `;
+        renderViewRow(tr, row);
         tbody.appendChild(tr);
       });
+    }
 
-      tbody.querySelectorAll("button[data-id]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          if (!confirm("確定要刪除這筆紀錄嗎?")) return;
-          const { error } = await supabaseClient.from("collections").delete().eq("id", btn.dataset.id);
-          if (error) {
-            alert("刪除失敗:" + error.message);
-            return;
-          }
-          await loadData();
+    function renderViewRow(tr, row) {
+      tr.innerHTML = `
+        <td>${row.collected_at}</td>
+        <td>${row.coin_10} / ${row.coin_50}</td>
+        <td>${row.bill_100} / ${row.bill_500} / ${row.bill_1000}</td>
+        <td class="amount">${formatMoney(rowTotal(row))}</td>
+        <td class="row-actions">
+          <button class="icon-btn edit-btn">編輯</button>
+          <button class="icon-btn danger delete-btn">刪除</button>
+        </td>
+      `;
+
+      tr.querySelector(".edit-btn").addEventListener("click", () => renderEditRow(tr, row));
+      tr.querySelector(".delete-btn").addEventListener("click", async () => {
+        if (!confirm("確定要刪除這筆紀錄嗎?")) return;
+        const { error } = await supabaseClient.from("collections").delete().eq("id", row.id);
+        if (error) {
+          alert("刪除失敗:" + error.message);
+          return;
+        }
+        await loadData();
+      });
+    }
+
+    function renderEditRow(tr, row) {
+      tr.innerHTML = `
+        <td><input type="date" class="edit-input edit-date" value="${row.collected_at}"></td>
+        <td>
+          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_10" value="${row.coin_10}">
+          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_50" value="${row.coin_50}">
+        </td>
+        <td>
+          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_100" value="${row.bill_100}">
+          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_500" value="${row.bill_500}">
+          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_1000" value="${row.bill_1000}">
+        </td>
+        <td class="amount edit-total">${formatMoney(rowTotal(row))}</td>
+        <td class="row-actions">
+          <button class="icon-btn save-btn">儲存</button>
+          <button class="icon-btn cancel-btn">取消</button>
+        </td>
+      `;
+
+      const totalCell = tr.querySelector(".edit-total");
+      function recalcEditTotal() {
+        let total = 0;
+        tr.querySelectorAll(".edit-num").forEach((input) => {
+          const denom = DENOMS.find((d) => d.key === input.dataset.key).value;
+          total += (parseInt(input.value, 10) || 0) * denom;
         });
+        totalCell.textContent = formatMoney(total);
+      }
+      tr.querySelectorAll(".edit-num").forEach((input) => {
+        input.addEventListener("input", recalcEditTotal);
+      });
+
+      tr.querySelector(".cancel-btn").addEventListener("click", () => renderViewRow(tr, row));
+
+      tr.querySelector(".save-btn").addEventListener("click", async () => {
+        const collectedAt = tr.querySelector(".edit-date").value;
+        if (!collectedAt) {
+          alert("請選擇日期");
+          return;
+        }
+        const updates = { collected_at: collectedAt };
+        tr.querySelectorAll(".edit-num").forEach((input) => {
+          updates[input.dataset.key] = parseInt(input.value, 10) || 0;
+        });
+
+        const saveBtn = tr.querySelector(".save-btn");
+        saveBtn.disabled = true;
+        saveBtn.textContent = "儲存中...";
+
+        const { error } = await supabaseClient.from("collections").update(updates).eq("id", row.id);
+
+        if (error) {
+          alert("儲存失敗:" + error.message);
+          saveBtn.disabled = false;
+          saveBtn.textContent = "儲存";
+          return;
+        }
+
+        await loadData();
       });
     }
   </script>

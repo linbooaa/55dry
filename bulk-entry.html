@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>批次補登 | 55號洗衣店</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+  <div class="page wide">
+    <div class="topbar">
+      <div class="brand">
+        <span class="brand-badge">📝</span>
+        <div class="brand-text">
+          <span class="brand-name">55號洗衣店</span>
+          <span class="brand-sub">批次補登</span>
+        </div>
+      </div>
+      <nav>
+        <a href="entry.html">輸入營收</a>
+        <a href="dashboard.html">看分析</a>
+        <button class="signout" id="signout-btn">登出</button>
+      </nav>
+    </div>
+
+    <div class="card">
+      <p class="section-title">一次補登多筆過去的記錄</p>
+      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。</p>
+
+      <div class="bulk-table-wrap">
+        <table class="entries bulk-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>10 元硬幣</th>
+              <th>50 元硬幣</th>
+              <th>100 元紙鈔</th>
+              <th>500 元紙鈔</th>
+              <th>1000 元紙鈔</th>
+              <th>備註</th>
+              <th style="text-align:right;">總計</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="bulk-body"></tbody>
+        </table>
+      </div>
+
+      <button type="button" class="icon-btn" id="add-row-btn">+ 新增一列</button>
+
+      <button class="primary" id="submit-all-btn">送出全部</button>
+      <p class="error-msg" id="error-msg"></p>
+      <p class="success-msg" id="success-msg"></p>
+    </div>
+  </div>
+
+  <script src="assets/js/supabase-client.js"></script>
+  <script>
+    const DENOMS = [
+      { key: "coin_10", value: 10 },
+      { key: "coin_50", value: 50 },
+      { key: "bill_100", value: 100 },
+      { key: "bill_500", value: 500 },
+      { key: "bill_1000", value: 1000 },
+    ];
+    const EMPTY_ROW_COUNT = 10;
+
+    (async () => {
+      await requireSession();
+    })();
+
+    document.getElementById("signout-btn").addEventListener("click", signOut);
+
+    const tbody = document.getElementById("bulk-body");
+
+    function formatMoney(n) {
+      return "$" + n.toLocaleString("zh-TW");
+    }
+
+    function addRow() {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="date" class="row-date"></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="coin_10" value="0"></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="coin_50" value="0"></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_100" value="0"></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_500" value="0"></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_1000" value="0"></td>
+        <td><input type="text" class="row-note" placeholder="選填"></td>
+        <td class="amount row-total" style="text-align:right;">$0</td>
+        <td><button type="button" class="icon-btn danger row-remove">移除</button></td>
+      `;
+      tbody.appendChild(tr);
+
+      tr.querySelectorAll(".row-input").forEach((input) => {
+        input.addEventListener("input", () => recalcRow(tr));
+      });
+      tr.querySelector(".row-remove").addEventListener("click", () => tr.remove());
+    }
+
+    function recalcRow(tr) {
+      let total = 0;
+      DENOMS.forEach(({ key, value }) => {
+        const count = parseInt(tr.querySelector(`[data-key="${key}"]`).value, 10) || 0;
+        total += count * value;
+      });
+      tr.querySelector(".row-total").textContent = formatMoney(total);
+    }
+
+    document.getElementById("add-row-btn").addEventListener("click", addRow);
+
+    for (let i = 0; i < EMPTY_ROW_COUNT; i++) addRow();
+
+    document.getElementById("submit-all-btn").addEventListener("click", async () => {
+      const errorMsg = document.getElementById("error-msg");
+      const successMsg = document.getElementById("success-msg");
+      errorMsg.textContent = "";
+      successMsg.textContent = "";
+
+      const rows = [];
+      let hasInvalid = false;
+
+      tbody.querySelectorAll("tr").forEach((tr) => {
+        const date = tr.querySelector(".row-date").value;
+        const counts = {};
+        let rowTotal = 0;
+        DENOMS.forEach(({ key, value }) => {
+          const count = parseInt(tr.querySelector(`[data-key="${key}"]`).value, 10) || 0;
+          counts[key] = count;
+          rowTotal += count * value;
+        });
+        const note = tr.querySelector(".row-note").value.trim();
+
+        if (!date && rowTotal === 0) return; // 完全空白的列,自動略過
+        if (!date && rowTotal > 0) {
+          hasInvalid = true;
+          return;
+        }
+
+        rows.push({ collected_at: date, note: note || null, ...counts });
+      });
+
+      if (hasInvalid) {
+        errorMsg.textContent = "有幾列填了金額卻沒選日期,請補上日期(或把金額清空)";
+        return;
+      }
+      if (!rows.length) {
+        errorMsg.textContent = "沒有可以送出的資料,請至少填一列";
+        return;
+      }
+
+      const submitBtn = document.getElementById("submit-all-btn");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "送出中...";
+
+      const { error } = await supabaseClient.from("collections").insert(rows);
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = "送出全部";
+
+      if (error) {
+        errorMsg.textContent = "送出失敗:" + error.message;
+        return;
+      }
+
+      successMsg.textContent = `已成功存入 ${rows.length} 筆記錄!`;
+      tbody.innerHTML = "";
+      for (let i = 0; i < EMPTY_ROW_COUNT; i++) addRow();
+    });
+  </script>
+</body>
+</html>

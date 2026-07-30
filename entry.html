@@ -3,15 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>輸入營收 | 洗衣店營收記帳</title>
+<title>輸入營收 | 55號洗衣店</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
 <link rel="stylesheet" href="assets/css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
   <div class="page">
     <div class="topbar">
-      <h1>🧺 輸入營收</h1>
+      <div class="brand">
+        <span class="brand-badge">🧺</span>
+        <div class="brand-text">
+          <span class="brand-name">55號洗衣店</span>
+          <span class="brand-sub">輸入營收</span>
+        </div>
+      </div>
       <nav>
+        <a href="bulk-entry.html">批次補登</a>
         <a href="dashboard.html">看分析</a>
         <button class="signout" id="signout-btn">登出</button>
       </nav>
@@ -78,7 +86,7 @@
     })();
 
     document.getElementById("signout-btn").addEventListener("click", signOut);
-    document.getElementById("collected-at").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("collected-at").value = formatLocalDate(new Date());
 
     function formatMoney(n) {
       return "$" + n.toLocaleString("zh-TW");
