@@ -43,7 +43,7 @@
           <div class="stat-value" id="stat-total">$0</div>
         </div>
         <div class="stat-card stat-card--avg">
-          <div class="stat-label">📈 平均每次收款</div>
+          <div class="stat-label">📈 平均每筆金額</div>
           <div class="stat-value" id="stat-avg">$0</div>
         </div>
       </div>
@@ -69,8 +69,9 @@
             <thead>
               <tr>
                 <th>日期</th>
-                <th>10/50 硬幣</th>
-                <th>100/500/1000 紙鈔</th>
+                <th>機台</th>
+                <th>硬幣(10/50)</th>
+                <th>紙鈔(100/500/1000)</th>
                 <th style="text-align:right;">總計</th>
                 <th></th>
               </tr>
@@ -254,10 +255,14 @@
     }
 
     function renderViewRow(tr, row) {
+      const machine = MACHINE_OPTIONS.find((m) => m.key === row.machine);
+      const showCoin = !machine || machine.type === "coin" || machine.type === "mixed";
+      const showBill = !machine || machine.type === "bill" || machine.type === "mixed";
       tr.innerHTML = `
         <td>${row.collected_at}</td>
-        <td>${row.coin_10} / ${row.coin_50}</td>
-        <td>${row.bill_100} / ${row.bill_500} / ${row.bill_1000}</td>
+        <td>${MACHINE_LABELS[row.machine] || row.machine}</td>
+        <td>${showCoin ? `${row.coin_10} / ${row.coin_50}` : "-"}</td>
+        <td>${showBill ? `${row.bill_100} / ${row.bill_500} / ${row.bill_1000}` : "-"}</td>
         <td class="amount">${formatMoney(rowTotal(row))}</td>
         <td class="row-actions">
           <button class="icon-btn edit-btn">編輯</button>
@@ -278,17 +283,21 @@
     }
 
     function renderEditRow(tr, row) {
+      const machine = MACHINE_OPTIONS.find((m) => m.key === row.machine);
+      const showCoin = !machine || machine.type === "coin" || machine.type === "mixed";
+      const showBill = !machine || machine.type === "bill" || machine.type === "mixed";
       tr.innerHTML = `
         <td><input type="date" class="edit-input edit-date" value="${row.collected_at}"></td>
-        <td>
+        <td>${MACHINE_LABELS[row.machine] || row.machine}</td>
+        <td>${showCoin ? `
           <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_10" value="${row.coin_10}">
           <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_50" value="${row.coin_50}">
-        </td>
-        <td>
+        ` : "-"}</td>
+        <td>${showBill ? `
           <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_100" value="${row.bill_100}">
           <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_500" value="${row.bill_500}">
           <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_1000" value="${row.bill_1000}">
-        </td>
+        ` : "-"}</td>
         <td class="amount edit-total">${formatMoney(rowTotal(row))}</td>
         <td class="row-actions">
           <button class="icon-btn save-btn">儲存</button>

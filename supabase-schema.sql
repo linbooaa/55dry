@@ -3,6 +3,12 @@
 create table collections (
   id uuid primary key default gen_random_uuid(),
   collected_at date not null,
+  machine text not null check (machine in (
+    'wash_1', 'wash_2', 'wash_3', 'wash_4',
+    'dry_1', 'dry_2', 'dry_3',
+    'exchange', 'purchase',
+    'total' -- 補登舊資料用,當時沒有分機台記錄
+  )),
   coin_10 integer not null default 0,
   coin_50 integer not null default 0,
   bill_100 integer not null default 0,

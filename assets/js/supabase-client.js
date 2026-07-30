@@ -27,3 +27,24 @@ function formatLocalDate(d) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+// 機台清單:洗衣機、烘衣機、投幣機購買收的是硬幣;投幣機換幣收的是紙鈔
+const MACHINES = [
+  { key: "wash_1", label: "洗衣機 1", type: "coin" },
+  { key: "wash_2", label: "洗衣機 2", type: "coin" },
+  { key: "wash_3", label: "洗衣機 3", type: "coin" },
+  { key: "wash_4", label: "洗衣機 4", type: "coin" },
+  { key: "dry_1", label: "烘衣機 1", type: "coin" },
+  { key: "dry_2", label: "烘衣機 2", type: "coin" },
+  { key: "dry_3", label: "烘衣機 3", type: "coin" },
+  { key: "exchange", label: "投幣機換幣", type: "bill" },
+  { key: "purchase", label: "投幣機購買", type: "coin" },
+];
+
+// 補登舊資料用:當時沒有分機台記錄,只有一筆總額(硬幣、紙鈔都可能有)
+const TOTAL_MACHINE = { key: "total", label: "總收入(舊資料,無機台明細)", type: "mixed" };
+
+// 機台下拉選單用的完整清單(含「總收入」選項),批次補登、分析頁會用到
+const MACHINE_OPTIONS = [...MACHINES, TOTAL_MACHINE];
+
+const MACHINE_LABELS = Object.fromEntries(MACHINE_OPTIONS.map((m) => [m.key, m.label]));

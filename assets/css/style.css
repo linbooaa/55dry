@@ -308,6 +308,17 @@ button.primary:disabled { background: #a9b6cc; box-shadow: none; cursor: not-all
   margin: 0 0 4px;
 }
 
+.machine-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.machine-header .machine-total {
+  font-size: 1.1rem;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -452,12 +463,24 @@ input.edit-input.edit-num {
 
 table.bulk-table input[type="date"],
 table.bulk-table input[type="number"],
-table.bulk-table input[type="text"] {
+table.bulk-table input[type="text"],
+table.bulk-table select {
   padding: 7px 8px;
   border-radius: 9px;
+  border: 1px solid var(--border);
+  background: #f8f9fc;
   font-size: 0.85rem;
   width: 100%;
   min-width: 90px;
+}
+
+table.bulk-table select {
+  min-width: 110px;
+}
+
+table.bulk-table input:disabled {
+  background: #eef0f4;
+  color: var(--muted);
 }
 
 table.bulk-table input[type="number"] {

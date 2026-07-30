@@ -27,13 +27,14 @@
 
     <div class="card">
       <p class="section-title">一次補登多筆過去的記錄</p>
-      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。</p>
+      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期、機台跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。如果舊資料沒有分機台,機台選「總收入(舊資料,無機台明細)」,硬幣紙鈔都可以填。</p>
 
       <div class="bulk-table-wrap">
         <table class="entries bulk-table">
           <thead>
             <tr>
               <th>日期</th>
+              <th>機台</th>
               <th>10 元硬幣</th>
               <th>50 元硬幣</th>
               <th>100 元紙鈔</th>
@@ -59,11 +60,11 @@
   <script src="assets/js/supabase-client.js"></script>
   <script>
     const DENOMS = [
-      { key: "coin_10", value: 10 },
-      { key: "coin_50", value: 50 },
-      { key: "bill_100", value: 100 },
-      { key: "bill_500", value: 500 },
-      { key: "bill_1000", value: 1000 },
+      { key: "coin_10", value: 10, type: "coin" },
+      { key: "coin_50", value: 50, type: "coin" },
+      { key: "bill_100", value: 100, type: "bill" },
+      { key: "bill_500", value: 500, type: "bill" },
+      { key: "bill_1000", value: 1000, type: "bill" },
     ];
     const EMPTY_ROW_COUNT = 10;
 
@@ -81,8 +82,15 @@
 
     function addRow() {
       const tr = document.createElement("tr");
+      const machineOptions = MACHINE_OPTIONS.map((m) => `<option value="${m.key}">${m.label}</option>`).join("");
       tr.innerHTML = `
         <td><input type="date" class="row-date"></td>
+        <td>
+          <select class="row-machine">
+            <option value="">請選擇</option>
+            ${machineOptions}
+          </select>
+        </td>
         <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="coin_10" value="0"></td>
         <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="coin_50" value="0"></td>
         <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_100" value="0"></td>
@@ -97,7 +105,21 @@
       tr.querySelectorAll(".row-input").forEach((input) => {
         input.addEventListener("input", () => recalcRow(tr));
       });
+      tr.querySelector(".row-machine").addEventListener("change", () => updateRowMachineType(tr));
       tr.querySelector(".row-remove").addEventListener("click", () => tr.remove());
+    }
+
+    function updateRowMachineType(tr) {
+      const machineKey = tr.querySelector(".row-machine").value;
+      const machine = MACHINE_OPTIONS.find((m) => m.key === machineKey);
+
+      DENOMS.forEach(({ key, type }) => {
+        const input = tr.querySelector(`[data-key="${key}"]`);
+        const disabled = machine && machine.type !== "mixed" ? machine.type !== type : false;
+        input.disabled = disabled;
+        if (disabled) input.value = 0;
+      });
+      recalcRow(tr);
     }
 
     function recalcRow(tr) {
@@ -124,6 +146,7 @@
 
       tbody.querySelectorAll("tr").forEach((tr) => {
         const date = tr.querySelector(".row-date").value;
+        const machine = tr.querySelector(".row-machine").value;
         const counts = {};
         let rowTotal = 0;
         DENOMS.forEach(({ key, value }) => {
@@ -133,17 +156,17 @@
         });
         const note = tr.querySelector(".row-note").value.trim();
 
-        if (!date && rowTotal === 0) return; // 完全空白的列,自動略過
-        if (!date && rowTotal > 0) {
+        if (!date && !machine && rowTotal === 0) return; // 完全空白的列,自動略過
+        if (!date || !machine) {
           hasInvalid = true;
           return;
         }
 
-        rows.push({ collected_at: date, note: note || null, ...counts });
+        rows.push({ collected_at: date, machine, note: note || null, ...counts });
       });
 
       if (hasInvalid) {
-        errorMsg.textContent = "有幾列填了金額卻沒選日期,請補上日期(或把金額清空)";
+        errorMsg.textContent = "有幾列填了資料卻沒選日期或機台,請補齊(或把金額清空)";
         return;
       }
       if (!rows.length) {
