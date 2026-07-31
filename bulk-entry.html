@@ -2,9 +2,15 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>批次補登 | 55號洗衣店</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
+<link rel="manifest" href="assets/manifest.json">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="55號洗衣店">
 <link rel="stylesheet" href="assets/css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
@@ -19,15 +25,17 @@
         </div>
       </div>
       <nav>
-        <a href="entry.html">輸入營收</a>
-        <a href="dashboard.html">看分析</a>
+        <span class="nav-links">
+          <a href="entry.html">輸入營收</a>
+          <a href="dashboard.html">看分析</a>
+        </span>
         <button class="signout" id="signout-btn">登出</button>
       </nav>
     </div>
 
     <div class="card">
       <p class="section-title">一次補登多筆過去的記錄</p>
-      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期、機台跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。如果舊資料沒有分機台,機台選「總收入(舊資料,無機台明細)」,硬幣紙鈔都可以填。</p>
+      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期、機台跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。如果舊資料沒有分機台,機台選「總收入(舊資料,無機台明細)」,硬幣紙鈔都可以填;如果連面額都不知道、只記得當天總共收多少,可以直接填最右邊的「總金額」欄位就好。</p>
 
       <div class="bulk-table-wrap">
         <table class="entries bulk-table">
@@ -40,6 +48,7 @@
               <th>100 元紙鈔</th>
               <th>500 元紙鈔</th>
               <th>1000 元紙鈔</th>
+              <th>總金額(舊資料)</th>
               <th>備註</th>
               <th style="text-align:right;">總計</th>
               <th></th>
@@ -56,6 +65,12 @@
       <p class="success-msg" id="success-msg"></p>
     </div>
   </div>
+
+  <nav class="bottom-nav">
+    <a href="entry.html" class="bottom-nav-item"><span class="bn-icon">🧺</span><span class="bn-label">輸入營收</span></a>
+    <a href="bulk-entry.html" class="bottom-nav-item active"><span class="bn-icon">📝</span><span class="bn-label">批次補登</span></a>
+    <a href="dashboard.html" class="bottom-nav-item"><span class="bn-icon">📊</span><span class="bn-label">看分析</span></a>
+  </nav>
 
   <script src="assets/js/supabase-client.js"></script>
   <script>
@@ -96,6 +111,7 @@
         <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_100" value="0"></td>
         <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_500" value="0"></td>
         <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_1000" value="0"></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-manual-total" placeholder="只知道總額時填" disabled></td>
         <td><input type="text" class="row-note" placeholder="選填"></td>
         <td class="amount row-total" style="text-align:right;">$0</td>
         <td><button type="button" class="icon-btn danger row-remove">移除</button></td>
@@ -105,17 +121,33 @@
       tr.querySelectorAll(".row-input").forEach((input) => {
         input.addEventListener("input", () => recalcRow(tr));
       });
+      tr.querySelector(".row-manual-total").addEventListener("input", () => updateRowMachineType(tr));
       tr.querySelector(".row-machine").addEventListener("change", () => updateRowMachineType(tr));
       tr.querySelector(".row-remove").addEventListener("click", () => tr.remove());
+    }
+
+    function manualTotalValue(tr) {
+      const manualInput = tr.querySelector(".row-manual-total");
+      if (manualInput.disabled) return null;
+      const n = parseInt(manualInput.value, 10);
+      return n > 0 ? n : null;
     }
 
     function updateRowMachineType(tr) {
       const machineKey = tr.querySelector(".row-machine").value;
       const machine = MACHINE_OPTIONS.find((m) => m.key === machineKey);
+      const isTotal = !!machine && machine.key === "total";
+
+      const manualInput = tr.querySelector(".row-manual-total");
+      manualInput.disabled = !isTotal;
+      if (!isTotal) manualInput.value = "";
+
+      const usingManual = manualTotalValue(tr) !== null;
 
       DENOMS.forEach(({ key, type }) => {
-        const input = tr.querySelector(`[data-key="${key}"]`);
-        const disabled = machine && machine.type !== "mixed" ? machine.type !== type : false;
+        const input = tr.querySelector(`.row-input[data-key="${key}"]`);
+        const typeDisabled = machine && machine.type !== "mixed" ? machine.type !== type : false;
+        const disabled = typeDisabled || usingManual;
         input.disabled = disabled;
         if (disabled) input.value = 0;
       });
@@ -123,11 +155,17 @@
     }
 
     function recalcRow(tr) {
-      let total = 0;
-      DENOMS.forEach(({ key, value }) => {
-        const count = parseInt(tr.querySelector(`[data-key="${key}"]`).value, 10) || 0;
-        total += count * value;
-      });
+      const manual = manualTotalValue(tr);
+      let total;
+      if (manual !== null) {
+        total = manual;
+      } else {
+        total = 0;
+        DENOMS.forEach(({ key, value }) => {
+          const count = parseInt(tr.querySelector(`.row-input[data-key="${key}"]`).value, 10) || 0;
+          total += count * value;
+        });
+      }
       tr.querySelector(".row-total").textContent = formatMoney(total);
     }
 
@@ -147,13 +185,15 @@
       tbody.querySelectorAll("tr").forEach((tr) => {
         const date = tr.querySelector(".row-date").value;
         const machine = tr.querySelector(".row-machine").value;
+        const manualTotal = manualTotalValue(tr);
         const counts = {};
         let rowTotal = 0;
         DENOMS.forEach(({ key, value }) => {
-          const count = parseInt(tr.querySelector(`[data-key="${key}"]`).value, 10) || 0;
+          const count = manualTotal !== null ? 0 : (parseInt(tr.querySelector(`.row-input[data-key="${key}"]`).value, 10) || 0);
           counts[key] = count;
           rowTotal += count * value;
         });
+        if (manualTotal !== null) rowTotal = manualTotal;
         const note = tr.querySelector(".row-note").value.trim();
 
         if (!date && !machine && rowTotal === 0) return; // 完全空白的列,自動略過
@@ -162,7 +202,7 @@
           return;
         }
 
-        rows.push({ collected_at: date, machine, note: note || null, ...counts });
+        rows.push({ collected_at: date, machine, note: note || null, manual_total: manualTotal, ...counts });
       });
 
       if (hasInvalid) {

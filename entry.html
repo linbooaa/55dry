@@ -2,9 +2,15 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>輸入營收 | 55號洗衣店</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
+<link rel="manifest" href="assets/manifest.json">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="55號洗衣店">
 <link rel="stylesheet" href="assets/css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
@@ -19,8 +25,10 @@
         </div>
       </div>
       <nav>
-        <a href="bulk-entry.html">批次補登</a>
-        <a href="dashboard.html">看分析</a>
+        <span class="nav-links">
+          <a href="bulk-entry.html">批次補登</a>
+          <a href="dashboard.html">看分析</a>
+        </span>
         <button class="signout" id="signout-btn">登出</button>
       </nav>
     </div>
@@ -47,6 +55,12 @@
       <p class="success-msg" id="success-msg"></p>
     </div>
   </div>
+
+  <nav class="bottom-nav">
+    <a href="entry.html" class="bottom-nav-item active"><span class="bn-icon">🧺</span><span class="bn-label">輸入營收</span></a>
+    <a href="bulk-entry.html" class="bottom-nav-item"><span class="bn-icon">📝</span><span class="bn-label">批次補登</span></a>
+    <a href="dashboard.html" class="bottom-nav-item"><span class="bn-icon">📊</span><span class="bn-label">看分析</span></a>
+  </nav>
 
   <script src="assets/js/supabase-client.js"></script>
   <script>
@@ -83,7 +97,11 @@
       const rows = denoms.map(({ key, value, label }) => `
         <div class="denom-row">
           <div class="label"><span class="coin-badge">${value}</span> ${label}</div>
-          <input type="number" min="0" step="1" inputmode="numeric" class="denom-input" data-key="${key}" value="0">
+          <div class="stepper">
+            <button type="button" class="stepper-btn stepper-minus" data-key="${key}" aria-label="減少一個${label}">−</button>
+            <input type="number" min="0" step="1" inputmode="numeric" class="denom-input" data-key="${key}" value="0">
+            <button type="button" class="stepper-btn stepper-plus" data-key="${key}" aria-label="增加一個${label}">+</button>
+          </div>
           <div class="subtotal" data-sub="${key}">$0</div>
         </div>
       `).join("");
@@ -103,12 +121,22 @@
           recalcGrandTotal();
         });
       });
+
+      card.querySelectorAll(".stepper-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.dataset.key;
+          const input = card.querySelector(`.denom-input[data-key="${key}"]`);
+          const delta = btn.classList.contains("stepper-plus") ? 1 : -1;
+          input.value = Math.max(0, (parseInt(input.value, 10) || 0) + delta);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      });
     });
 
     function recalcMachine(card, denoms) {
       let total = 0;
       denoms.forEach(({ key, value }) => {
-        const count = parseInt(card.querySelector(`[data-key="${key}"]`).value, 10) || 0;
+        const count = parseInt(card.querySelector(`.denom-input[data-key="${key}"]`).value, 10) || 0;
         const subtotal = count * value;
         total += subtotal;
         card.querySelector(`[data-sub="${key}"]`).textContent = formatMoney(subtotal);
@@ -124,7 +152,7 @@
         const denoms = machine.type === "coin" ? COIN_DENOMS : BILL_DENOMS;
         let total = 0;
         denoms.forEach(({ key, value }) => {
-          const count = parseInt(card.querySelector(`[data-key="${key}"]`).value, 10) || 0;
+          const count = parseInt(card.querySelector(`.denom-input[data-key="${key}"]`).value, 10) || 0;
           total += count * value;
         });
         grandTotal += total;
@@ -149,7 +177,7 @@
         const card = machinesWrap.querySelector(`[data-machine="${machine.key}"]`);
         const row = { collected_at: collectedAt, machine: machine.key, note };
         ALL_DENOMS.forEach(({ key }) => {
-          const input = card.querySelector(`[data-key="${key}"]`);
+          const input = card.querySelector(`.denom-input[data-key="${key}"]`);
           row[key] = input ? parseInt(input.value, 10) || 0 : 0;
         });
         return row;

@@ -2,9 +2,15 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>營收分析 | 55號洗衣店</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
+<link rel="manifest" href="assets/manifest.json">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="55號洗衣店">
 <link rel="stylesheet" href="assets/css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -20,8 +26,10 @@
         </div>
       </div>
       <nav>
-        <a href="entry.html">輸入營收</a>
-        <a href="bulk-entry.html">批次補登</a>
+        <span class="nav-links">
+          <a href="entry.html">輸入營收</a>
+          <a href="bulk-entry.html">批次補登</a>
+        </span>
         <button class="signout" id="signout-btn">登出</button>
       </nav>
     </div>
@@ -84,6 +92,12 @@
     </div>
   </div>
 
+  <nav class="bottom-nav">
+    <a href="entry.html" class="bottom-nav-item"><span class="bn-icon">🧺</span><span class="bn-label">輸入營收</span></a>
+    <a href="bulk-entry.html" class="bottom-nav-item"><span class="bn-icon">📝</span><span class="bn-label">批次補登</span></a>
+    <a href="dashboard.html" class="bottom-nav-item active"><span class="bn-icon">📊</span><span class="bn-label">看分析</span></a>
+  </nav>
+
   <script src="assets/js/supabase-client.js"></script>
   <script>
     const DENOMS = [
@@ -121,6 +135,7 @@
     }
 
     function rowTotal(row) {
+      if (row.manual_total != null) return row.manual_total;
       return row.coin_10 * 10 + row.coin_50 * 50 + row.bill_100 * 100 + row.bill_500 * 500 + row.bill_1000 * 1000;
     }
 
@@ -256,13 +271,14 @@
 
     function renderViewRow(tr, row) {
       const machine = MACHINE_OPTIONS.find((m) => m.key === row.machine);
-      const showCoin = !machine || machine.type === "coin" || machine.type === "mixed";
-      const showBill = !machine || machine.type === "bill" || machine.type === "mixed";
+      const isManual = row.manual_total != null;
+      const showCoin = !isManual && (!machine || machine.type === "coin" || machine.type === "mixed");
+      const showBill = !isManual && (!machine || machine.type === "bill" || machine.type === "mixed");
       tr.innerHTML = `
         <td>${row.collected_at}</td>
         <td>${MACHINE_LABELS[row.machine] || row.machine}</td>
         <td>${showCoin ? `${row.coin_10} / ${row.coin_50}` : "-"}</td>
-        <td>${showBill ? `${row.bill_100} / ${row.bill_500} / ${row.bill_1000}` : "-"}</td>
+        <td>${showBill ? `${row.bill_100} / ${row.bill_500} / ${row.bill_1000}` : isManual ? "只有總額" : "-"}</td>
         <td class="amount">${formatMoney(rowTotal(row))}</td>
         <td class="row-actions">
           <button class="icon-btn edit-btn">編輯</button>
@@ -284,20 +300,30 @@
 
     function renderEditRow(tr, row) {
       const machine = MACHINE_OPTIONS.find((m) => m.key === row.machine);
-      const showCoin = !machine || machine.type === "coin" || machine.type === "mixed";
-      const showBill = !machine || machine.type === "bill" || machine.type === "mixed";
+      const isTotalMachine = !!machine && machine.key === "total";
+      const showCoin = !isTotalMachine && (!machine || machine.type === "coin" || machine.type === "mixed");
+      const showBill = !isTotalMachine && (!machine || machine.type === "bill" || machine.type === "mixed");
+
+      const denomCells = isTotalMachine
+        ? `<td colspan="2">
+            <input type="number" min="0" step="1" class="edit-input edit-manual-total" value="${row.manual_total ?? ""}" placeholder="總金額(舊資料)">
+          </td>`
+        : `
+          <td>${showCoin ? `
+            <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_10" value="${row.coin_10}">
+            <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_50" value="${row.coin_50}">
+          ` : "-"}</td>
+          <td>${showBill ? `
+            <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_100" value="${row.bill_100}">
+            <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_500" value="${row.bill_500}">
+            <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_1000" value="${row.bill_1000}">
+          ` : "-"}</td>
+        `;
+
       tr.innerHTML = `
         <td><input type="date" class="edit-input edit-date" value="${row.collected_at}"></td>
         <td>${MACHINE_LABELS[row.machine] || row.machine}</td>
-        <td>${showCoin ? `
-          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_10" value="${row.coin_10}">
-          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="coin_50" value="${row.coin_50}">
-        ` : "-"}</td>
-        <td>${showBill ? `
-          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_100" value="${row.bill_100}">
-          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_500" value="${row.bill_500}">
-          <input type="number" min="0" step="1" class="edit-input edit-num" data-key="bill_1000" value="${row.bill_1000}">
-        ` : "-"}</td>
+        ${denomCells}
         <td class="amount edit-total">${formatMoney(rowTotal(row))}</td>
         <td class="row-actions">
           <button class="icon-btn save-btn">儲存</button>
@@ -307,6 +333,11 @@
 
       const totalCell = tr.querySelector(".edit-total");
       function recalcEditTotal() {
+        if (isTotalMachine) {
+          const manualInput = tr.querySelector(".edit-manual-total");
+          totalCell.textContent = formatMoney(parseInt(manualInput.value, 10) || 0);
+          return;
+        }
         let total = 0;
         tr.querySelectorAll(".edit-num").forEach((input) => {
           const denom = DENOMS.find((d) => d.key === input.dataset.key).value;
@@ -314,9 +345,13 @@
         });
         totalCell.textContent = formatMoney(total);
       }
-      tr.querySelectorAll(".edit-num").forEach((input) => {
-        input.addEventListener("input", recalcEditTotal);
-      });
+      if (isTotalMachine) {
+        tr.querySelector(".edit-manual-total").addEventListener("input", recalcEditTotal);
+      } else {
+        tr.querySelectorAll(".edit-num").forEach((input) => {
+          input.addEventListener("input", recalcEditTotal);
+        });
+      }
 
       tr.querySelector(".cancel-btn").addEventListener("click", () => renderViewRow(tr, row));
 
@@ -327,9 +362,16 @@
           return;
         }
         const updates = { collected_at: collectedAt };
-        tr.querySelectorAll(".edit-num").forEach((input) => {
-          updates[input.dataset.key] = parseInt(input.value, 10) || 0;
-        });
+        if (isTotalMachine) {
+          const manualVal = parseInt(tr.querySelector(".edit-manual-total").value, 10);
+          updates.manual_total = manualVal > 0 ? manualVal : null;
+          DENOMS.forEach(({ key }) => { updates[key] = 0; });
+        } else {
+          tr.querySelectorAll(".edit-num").forEach((input) => {
+            updates[input.dataset.key] = parseInt(input.value, 10) || 0;
+          });
+          updates.manual_total = null;
+        }
 
         const saveBtn = tr.querySelector(".save-btn");
         saveBtn.disabled = true;

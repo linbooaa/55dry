@@ -14,9 +14,13 @@ create table collections (
   bill_100 integer not null default 0,
   bill_500 integer not null default 0,
   bill_1000 integer not null default 0,
+  manual_total integer,
   note text,
   created_at timestamptz not null default now()
 );
+
+-- 舊資料補登用:如果只知道當天總金額、沒有面額明細,直接填這欄,不用拆成硬幣/紙鈔
+alter table collections add column if not exists manual_total integer;
 
 -- 開啟 Row Level Security,預設所有人都不能存取
 alter table collections enable row level security;
