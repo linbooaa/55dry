@@ -7,7 +7,9 @@ create table collections (
     'wash_1', 'wash_2', 'wash_3', 'wash_4',
     'dry_1', 'dry_2', 'dry_3',
     'exchange', 'purchase',
-    'total' -- 補登舊資料用,當時沒有分機台記錄
+    'wash_total', -- 補登舊資料用,當時有分洗衣機/烘衣機但沒分台數
+    'dry_total',
+    'total' -- 補登舊資料用,當時完全沒有分機台記錄
   )),
   coin_10 integer not null default 0,
   coin_50 integer not null default 0,
@@ -37,3 +39,13 @@ create policy "authenticated update" on collections
 
 create policy "authenticated delete" on collections
   for delete using (auth.role() = 'authenticated');
+
+-- 既有專案要新增「洗衣機/烘衣機分開的舊資料」機台時,在 SQL Editor 貼上並執行這一段即可
+-- （新建立的專案照上面整份執行過一次的話,不需要再跑這段）
+alter table collections drop constraint if exists collections_machine_check;
+alter table collections add constraint collections_machine_check check (machine in (
+  'wash_1', 'wash_2', 'wash_3', 'wash_4',
+  'dry_1', 'dry_2', 'dry_3',
+  'exchange', 'purchase',
+  'wash_total', 'dry_total', 'total'
+));

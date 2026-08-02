@@ -300,7 +300,7 @@
 
     function renderEditRow(tr, row) {
       const machine = MACHINE_OPTIONS.find((m) => m.key === row.machine);
-      const isTotalMachine = !!machine && machine.key === "total";
+      const isTotalMachine = !!machine && machine.type === "mixed";
       const showCoin = !isTotalMachine && (!machine || machine.type === "coin" || machine.type === "mixed");
       const showBill = !isTotalMachine && (!machine || machine.type === "bill" || machine.type === "mixed");
 

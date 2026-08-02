@@ -44,7 +44,11 @@ const MACHINES = [
 // 補登舊資料用:當時沒有分機台記錄,只有一筆總額(硬幣、紙鈔都可能有)
 const TOTAL_MACHINE = { key: "total", label: "總收入(舊資料,無機台明細)", type: "mixed" };
 
+// 補登舊資料用:當時有分洗衣機/烘衣機,但沒有分是第幾台
+const WASH_TOTAL_MACHINE = { key: "wash_total", label: "洗衣機總收入(舊資料,無機台明細)", type: "mixed" };
+const DRY_TOTAL_MACHINE = { key: "dry_total", label: "烘衣機總收入(舊資料,無機台明細)", type: "mixed" };
+
 // 機台下拉選單用的完整清單(含「總收入」選項),批次補登、分析頁會用到
-const MACHINE_OPTIONS = [...MACHINES, TOTAL_MACHINE];
+const MACHINE_OPTIONS = [...MACHINES, WASH_TOTAL_MACHINE, DRY_TOTAL_MACHINE, TOTAL_MACHINE];
 
 const MACHINE_LABELS = Object.fromEntries(MACHINE_OPTIONS.map((m) => [m.key, m.label]));

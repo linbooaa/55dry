@@ -136,7 +136,7 @@
     function updateRowMachineType(tr) {
       const machineKey = tr.querySelector(".row-machine").value;
       const machine = MACHINE_OPTIONS.find((m) => m.key === machineKey);
-      const isTotal = !!machine && machine.key === "total";
+      const isTotal = !!machine && machine.type === "mixed";
 
       const manualInput = tr.querySelector(".row-manual-total");
       manualInput.disabled = !isTotal;
