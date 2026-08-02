@@ -49,3 +49,26 @@ alter table collections add constraint collections_machine_check check (machine 
   'exchange', 'purchase',
   'wash_total', 'dry_total', 'total'
 ));
+
+-- 支出紀錄(幾月幾號、項目、金額)
+create table if not exists expenses (
+  id uuid primary key default gen_random_uuid(),
+  expense_date date not null,
+  item text not null,
+  amount integer not null,
+  created_at timestamptz not null default now()
+);
+
+alter table expenses enable row level security;
+
+create policy "authenticated read" on expenses
+  for select using (auth.role() = 'authenticated');
+
+create policy "authenticated insert" on expenses
+  for insert with check (auth.role() = 'authenticated');
+
+create policy "authenticated update" on expenses
+  for update using (auth.role() = 'authenticated');
+
+create policy "authenticated delete" on expenses
+  for delete using (auth.role() = 'authenticated');

@@ -8,6 +8,8 @@
 
 - `login.html`:登入頁(帳號密碼保護,避免外人看到營收)
 - `entry.html`:輸入當次收款的 10 元硬幣、50 元硬幣、100/500/1000 元紙鈔數量,自動算總額
+- `bulk-entry.html`:一次補登多筆過去的舊資料
+- `expense.html`:記錄支出(日期、項目、金額),可刪除
 - `dashboard.html`:本週/本月/累計營收、近 12 週與近 6 個月趨勢圖、歷史紀錄列表(可刪除)
 
 ## 第一次設定步驟
@@ -56,3 +58,9 @@
 如果舊資料有分洗衣機、烘衣機(但不知道是第幾台),選「洗衣機總收入」或「烘衣機總收入」分開登;如果連洗衣/烘衣都分不出來,才選最籠統的「總收入」。
 
 > 如果 Supabase 專案是在這次改動之前建立的,要先到 SQL Editor 執行 `supabase-schema.sql` 最下面那段 `alter table ... add constraint` 的 migration,資料庫才會接受 `wash_total` / `dry_total` 這兩個新機台值。
+
+## 支出記錄
+
+在「支出」頁可以記錄每一筆支出:日期、項目(例如水電費、修機台)、金額,列表可刪除。資料存在獨立的 `expenses` 資料表,跟收款紀錄分開,不會混在營收分析裡。
+
+> 同樣如果 Supabase 專案是舊的,要到 SQL Editor 執行 `supabase-schema.sql` 裡新增的 `create table if not exists expenses ...` 那一整段(建表 + RLS policy),才能開始使用支出頁。
