@@ -192,9 +192,20 @@
         return;
       }
 
-      const note = document.getElementById("note").value.trim() || null;
+      const userNote = document.getElementById("note").value.trim();
+      const showWashes = collectedAt >= "2026-03-01";
       const rows = MACHINES.map((machine) => {
         const card = machinesWrap.querySelector(`[data-machine="${machine.key}"]`);
+        let total = 0;
+        ALL_DENOMS.forEach(({ key, value }) => {
+          const input = card.querySelector(`.denom-input[data-key="${key}"]`);
+          total += (input ? parseInt(input.value, 10) || 0 : 0) * value;
+        });
+
+        const price = PRICE_PER_WASH[machine.key];
+        const washNote = showWashes && price ? `洗了 ${Math.floor(total / price)} 次` : null;
+        const note = [washNote, userNote].filter(Boolean).join("；") || null;
+
         const row = { collected_at: collectedAt, machine: machine.key, note };
         ALL_DENOMS.forEach(({ key }) => {
           const input = card.querySelector(`.denom-input[data-key="${key}"]`);
