@@ -76,6 +76,10 @@
       wash_4: 100,
     };
 
+    // 投幣機現鈔:2026-06-01 起,除了總金額,額外記 1000/500 元各幾張,自動寫進備注
+    const EXCHANGE_MACHINE_KEY = "exchange";
+    const EXCHANGE_NOTE_START = "2026-06-01";
+
     (async () => {
       await requireSession();
     })();
@@ -95,13 +99,24 @@
       card.dataset.machine = machine.key;
 
       const price = PRICE_PER_WASH[machine.key];
+      const isExchange = machine.key === EXCHANGE_MACHINE_KEY;
 
       card.innerHTML = `
         <div class="machine-header">
           <span class="section-title">${machine.label}</span>
         </div>
         ${price ? `<p class="hint machine-washes" style="margin:0 0 8px;">洗了 <strong>0</strong> 次(每次 $${price}）</p>` : ""}
-        <input type="number" min="0" step="1" inputmode="numeric" class="machine-amount" placeholder="0">
+        <input type="number" min="0" step="1" inputmode="numeric" class="machine-amount" placeholder="總金額">
+        ${isExchange ? `
+          <div class="denom-row" style="border:none; padding:8px 0 0; gap:8px;">
+            <label style="flex:1;">1000 元
+              <input type="number" min="0" step="1" inputmode="numeric" class="exchange-bill-1000" placeholder="幾張" value="0">
+            </label>
+            <label style="flex:1;">500 元
+              <input type="number" min="0" step="1" inputmode="numeric" class="exchange-bill-500" placeholder="幾張" value="0">
+            </label>
+          </div>
+        ` : ""}
       `;
       machinesWrap.appendChild(card);
 
@@ -145,16 +160,29 @@
 
       const userNote = document.getElementById("note").value.trim();
       const showWashes = collectedAt >= "2026-03-01";
+      const showExchangeNote = collectedAt >= EXCHANGE_NOTE_START;
       const rows = MACHINES.map((machine) => {
         const card = machinesWrap.querySelector(`[data-machine="${machine.key}"]`);
         const total = parseInt(card.querySelector(".machine-amount").value, 10) || 0;
 
         const price = PRICE_PER_WASH[machine.key];
         const washNote = showWashes && price ? `洗了 ${Math.floor(total / price)} 次` : null;
-        const note = [washNote, userNote].filter(Boolean).join("；") || null;
+
+        const isExchange = machine.key === EXCHANGE_MACHINE_KEY;
+        const bill1000 = isExchange ? parseInt(card.querySelector(".exchange-bill-1000").value, 10) || 0 : 0;
+        const bill500 = isExchange ? parseInt(card.querySelector(".exchange-bill-500").value, 10) || 0 : 0;
+        const exchangeNote = isExchange && showExchangeNote && (bill1000 || bill500)
+          ? `1000元 ${bill1000}張、500元 ${bill500}張`
+          : null;
+
+        const note = [washNote, exchangeNote, userNote].filter(Boolean).join("；") || null;
 
         const row = { collected_at: collectedAt, machine: machine.key, note, manual_total: total };
         ALL_DENOMS.forEach((key) => { row[key] = 0; });
+        if (isExchange) {
+          row.bill_1000 = bill1000;
+          row.bill_500 = bill500;
+        }
         return row;
       });
 
@@ -175,6 +203,9 @@
       successMsg.textContent = "已儲存!可以繼續輸入下一批,或點上面「看分析」查看營收。";
       machinesWrap.querySelectorAll(".machine-amount").forEach((input) => {
         input.value = "";
+      });
+      machinesWrap.querySelectorAll(".exchange-bill-1000, .exchange-bill-500").forEach((input) => {
+        input.value = "0";
       });
       machinesWrap.querySelectorAll(".card").forEach((card) => recalcMachine(card));
       recalcGrandTotal();
