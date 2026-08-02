@@ -72,6 +72,14 @@
       </div>
 
       <div class="card">
+        <p class="section-title">投幣機現鈔趨勢(不計入營收)</p>
+        <p class="hint" style="margin-top:-4px;">投幣機現鈔不算店裡的營收,不會加進上面的統計數字,這裡單獨看它自己的走勢。</p>
+        <div class="chart-wrap">
+          <canvas id="exchange-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
         <p class="section-title">最近收款紀錄</p>
         <div id="entries-wrap">
           <table class="entries">
@@ -111,8 +119,11 @@
       { key: "bill_1000", value: 1000 },
     ];
 
+    // 投幣機現鈔不算店裡營收,統計和趨勢圖都要排除它
+    const NON_REVENUE_MACHINES = ["exchange"];
+
     let allRows = [];
-    let weeklyChart, monthlyChart;
+    let weeklyChart, monthlyChart, exchangeChart;
 
     (async () => {
       await requireSession();
@@ -166,16 +177,18 @@
       renderStats();
       renderWeeklyChart();
       renderMonthlyChart();
+      renderExchangeChart();
       renderTable();
     }
 
     function renderStats() {
+      const revenueRows = allRows.filter((r) => !NON_REVENUE_MACHINES.includes(r.machine));
       const today = formatLocalDate(new Date());
       const thisWeek = weekStart(today);
       const thisMonth = monthStart(today);
 
       let weekTotal = 0, monthTotal = 0, grandTotal = 0;
-      allRows.forEach((row) => {
+      revenueRows.forEach((row) => {
         const t = rowTotal(row);
         grandTotal += t;
         if (weekStart(row.collected_at) === thisWeek) weekTotal += t;
@@ -185,8 +198,8 @@
       document.getElementById("stat-week").textContent = formatMoney(weekTotal);
       document.getElementById("stat-month").textContent = formatMoney(monthTotal);
       document.getElementById("stat-total").textContent = formatMoney(grandTotal);
-      document.getElementById("stat-avg").textContent = allRows.length
-        ? formatMoney(grandTotal / allRows.length)
+      document.getElementById("stat-avg").textContent = revenueRows.length
+        ? formatMoney(grandTotal / revenueRows.length)
         : "$0";
     }
 
@@ -217,9 +230,10 @@
     }
 
     function renderWeeklyChart() {
+      const revenueRows = allRows.filter((r) => !NON_REVENUE_MACHINES.includes(r.machine));
       const weeks = allWeeksSoFar();
       const totals = weeks.map((w) =>
-        allRows.filter((r) => weekStart(r.collected_at) === w).reduce((sum, r) => sum + rowTotal(r), 0)
+        revenueRows.filter((r) => weekStart(r.collected_at) === w).reduce((sum, r) => sum + rowTotal(r), 0)
       );
 
       if (weeklyChart) weeklyChart.destroy();
@@ -246,9 +260,10 @@
     }
 
     function renderMonthlyChart() {
+      const revenueRows = allRows.filter((r) => !NON_REVENUE_MACHINES.includes(r.machine));
       const months = lastNMonths(6);
       const totals = months.map((m) =>
-        allRows.filter((r) => monthStart(r.collected_at) === m).reduce((sum, r) => sum + rowTotal(r), 0)
+        revenueRows.filter((r) => monthStart(r.collected_at) === m).reduce((sum, r) => sum + rowTotal(r), 0)
       );
 
       if (monthlyChart) monthlyChart.destroy();
@@ -263,6 +278,36 @@
             backgroundColor: "rgba(22,163,74,0.1)",
             fill: true,
             tension: 0.3,
+          }],
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } },
+        },
+      });
+    }
+
+    function renderExchangeChart() {
+      const exchangeRows = allRows.filter((r) => NON_REVENUE_MACHINES.includes(r.machine));
+      const weeks = allWeeksSoFar();
+      const totals = weeks.map((w) =>
+        exchangeRows.filter((r) => weekStart(r.collected_at) === w).reduce((sum, r) => sum + rowTotal(r), 0)
+      );
+
+      if (exchangeChart) exchangeChart.destroy();
+      exchangeChart = new Chart(document.getElementById("exchange-chart"), {
+        type: "line",
+        data: {
+          labels: weeks.map((w) => w.slice(5)),
+          datasets: [{
+            label: "投幣機現鈔",
+            data: totals,
+            borderColor: "#d97706",
+            backgroundColor: "rgba(217,119,6,0.1)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
           }],
         },
         options: {
