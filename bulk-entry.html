@@ -36,7 +36,7 @@
 
     <div class="card">
       <p class="section-title">一次補登多筆過去的記錄</p>
-      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期、機台跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。如果舊資料沒有分機台,機台選「總收入(舊資料,無機台明細)」。不管選哪台機台,只要不知道面額明細、只記得當天總共收多少,都可以直接填最右邊的「總金額」欄位就好,不用拆成硬幣/紙鈔。</p>
+      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期、機台跟總金額,打完按「送出全部」一次存檔。空白的列會自動略過。如果舊資料沒有分機台,機台選「總收入(舊資料,無機台明細)」。機台選「投幣機現鈔」時,可以額外填 1000/500 元各幾張,會自動寫進備註。</p>
 
       <div class="bulk-table-wrap">
         <table class="entries bulk-table">
@@ -44,12 +44,9 @@
             <tr>
               <th>日期</th>
               <th>機台</th>
-              <th>10 元硬幣</th>
-              <th>50 元硬幣</th>
-              <th>100 元紙鈔</th>
-              <th>500 元紙鈔</th>
-              <th>1000 元紙鈔</th>
-              <th>總金額(舊資料)</th>
+              <th>總金額</th>
+              <th>1000元(張)</th>
+              <th>500元(張)</th>
               <th>備註</th>
               <th style="text-align:right;">總計</th>
               <th></th>
@@ -76,14 +73,9 @@
 
   <script src="assets/js/supabase-client.js"></script>
   <script>
-    const DENOMS = [
-      { key: "coin_10", value: 10, type: "coin" },
-      { key: "coin_50", value: 50, type: "coin" },
-      { key: "bill_100", value: 100, type: "bill" },
-      { key: "bill_500", value: 500, type: "bill" },
-      { key: "bill_1000", value: 1000, type: "bill" },
-    ];
     const EMPTY_ROW_COUNT = 10;
+    const EXCHANGE_MACHINE_KEY = "exchange";
+    const ALL_DENOMS = ["coin_10", "coin_50", "bill_100", "bill_500", "bill_1000"];
 
     (async () => {
       await requireSession();
@@ -108,66 +100,36 @@
             ${machineOptions}
           </select>
         </td>
-        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="coin_10" value="0"></td>
-        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="coin_50" value="0"></td>
-        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_100" value="0"></td>
-        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_500" value="0"></td>
-        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-input" data-key="bill_1000" value="0"></td>
-        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-manual-total" placeholder="只知道總額時填" disabled></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-total-input" placeholder="0"></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-bill-1000" value="0" disabled></td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" class="row-bill-500" value="0" disabled></td>
         <td><input type="text" class="row-note" placeholder="選填"></td>
         <td class="amount row-total" style="text-align:right;">$0</td>
         <td><button type="button" class="icon-btn danger row-remove">移除</button></td>
       `;
       tbody.appendChild(tr);
 
-      tr.querySelectorAll(".row-input").forEach((input) => {
-        input.addEventListener("input", () => recalcRow(tr));
-      });
-      tr.querySelector(".row-manual-total").addEventListener("input", () => updateRowMachineType(tr));
+      tr.querySelector(".row-total-input").addEventListener("input", () => recalcRow(tr));
       tr.querySelector(".row-machine").addEventListener("change", () => updateRowMachineType(tr));
       tr.querySelector(".row-remove").addEventListener("click", () => tr.remove());
     }
 
-    function manualTotalValue(tr) {
-      const manualInput = tr.querySelector(".row-manual-total");
-      if (manualInput.disabled) return null;
-      const n = parseInt(manualInput.value, 10);
-      return n > 0 ? n : null;
-    }
-
     function updateRowMachineType(tr) {
       const machineKey = tr.querySelector(".row-machine").value;
-      const machine = MACHINE_OPTIONS.find((m) => m.key === machineKey);
+      const isExchange = machineKey === EXCHANGE_MACHINE_KEY;
 
-      // 任何機台只要選了,都可以直接填總金額(不一定要拆硬幣/紙鈔),方便補登只知道總額的舊資料
-      const manualInput = tr.querySelector(".row-manual-total");
-      manualInput.disabled = !machine;
-      if (!machine) manualInput.value = "";
-
-      const usingManual = manualTotalValue(tr) !== null;
-
-      DENOMS.forEach(({ key, type }) => {
-        const input = tr.querySelector(`.row-input[data-key="${key}"]`);
-        const typeDisabled = machine && machine.type !== "mixed" ? machine.type !== type : false;
-        const disabled = typeDisabled || usingManual;
-        input.disabled = disabled;
-        if (disabled) input.value = 0;
-      });
-      recalcRow(tr);
+      const bill1000Input = tr.querySelector(".row-bill-1000");
+      const bill500Input = tr.querySelector(".row-bill-500");
+      bill1000Input.disabled = !isExchange;
+      bill500Input.disabled = !isExchange;
+      if (!isExchange) {
+        bill1000Input.value = 0;
+        bill500Input.value = 0;
+      }
     }
 
     function recalcRow(tr) {
-      const manual = manualTotalValue(tr);
-      let total;
-      if (manual !== null) {
-        total = manual;
-      } else {
-        total = 0;
-        DENOMS.forEach(({ key, value }) => {
-          const count = parseInt(tr.querySelector(`.row-input[data-key="${key}"]`).value, 10) || 0;
-          total += count * value;
-        });
-      }
+      const total = parseInt(tr.querySelector(".row-total-input").value, 10) || 0;
       tr.querySelector(".row-total").textContent = formatMoney(total);
     }
 
@@ -187,24 +149,30 @@
       tbody.querySelectorAll("tr").forEach((tr) => {
         const date = tr.querySelector(".row-date").value;
         const machine = tr.querySelector(".row-machine").value;
-        const manualTotal = manualTotalValue(tr);
-        const counts = {};
-        let rowTotal = 0;
-        DENOMS.forEach(({ key, value }) => {
-          const count = manualTotal !== null ? 0 : (parseInt(tr.querySelector(`.row-input[data-key="${key}"]`).value, 10) || 0);
-          counts[key] = count;
-          rowTotal += count * value;
-        });
-        if (manualTotal !== null) rowTotal = manualTotal;
-        const note = tr.querySelector(".row-note").value.trim();
+        const total = parseInt(tr.querySelector(".row-total-input").value, 10) || 0;
+        const userNote = tr.querySelector(".row-note").value.trim();
 
-        if (!date && !machine && rowTotal === 0) return; // 完全空白的列,自動略過
+        if (!date && !machine && total === 0 && !userNote) return; // 完全空白的列,自動略過
         if (!date || !machine) {
           hasInvalid = true;
           return;
         }
 
-        rows.push({ collected_at: date, machine, note: note || null, manual_total: manualTotal, ...counts });
+        const isExchange = machine === EXCHANGE_MACHINE_KEY;
+        const bill1000 = isExchange ? parseInt(tr.querySelector(".row-bill-1000").value, 10) || 0 : 0;
+        const bill500 = isExchange ? parseInt(tr.querySelector(".row-bill-500").value, 10) || 0 : 0;
+        const exchangeNote = isExchange && (bill1000 || bill500)
+          ? `1000元 ${bill1000}張、500元 ${bill500}張`
+          : null;
+        const note = [exchangeNote, userNote].filter(Boolean).join("；") || null;
+
+        const row = { collected_at: date, machine, note, manual_total: total };
+        ALL_DENOMS.forEach((key) => { row[key] = 0; });
+        if (isExchange) {
+          row.bill_1000 = bill1000;
+          row.bill_500 = bill500;
+        }
+        rows.push(row);
       });
 
       if (hasInvalid) {
