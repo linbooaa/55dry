@@ -37,7 +37,7 @@
     <div class="card">
       <p class="section-title">收款日期</p>
       <input type="date" id="collected-at">
-      <p class="hint" style="margin-top:8px;">依序點收每台機器的硬幣/紙鈔數量,填完按下面「送出這批收款」一次存檔。</p>
+      <p class="hint" style="margin-top:8px;">依序填每台機器收到的總金額,填完按下面「送出這批收款」一次存檔。</p>
     </div>
 
     <div id="machines-wrap"></div>
@@ -66,16 +66,7 @@
 
   <script src="assets/js/supabase-client.js"></script>
   <script>
-    const COIN_DENOMS = [
-      { key: "coin_10", value: 10, label: "10 元硬幣" },
-      { key: "coin_50", value: 50, label: "50 元硬幣" },
-    ];
-    const BILL_DENOMS = [
-      { key: "bill_100", value: 100, label: "100 元紙鈔" },
-      { key: "bill_500", value: 500, label: "500 元紙鈔" },
-      { key: "bill_1000", value: 1000, label: "1000 元紙鈔" },
-    ];
-    const ALL_DENOMS = [...COIN_DENOMS, ...BILL_DENOMS];
+    const ALL_DENOMS = ["coin_10", "coin_50", "bill_100", "bill_500", "bill_1000"];
 
     // 每台洗衣機洗一次的價格,用來自動換算洗了幾次(烘衣機、投幣機沒有固定單價,不列在這裡)
     const PRICE_PER_WASH = {
@@ -99,62 +90,29 @@
     const machinesWrap = document.getElementById("machines-wrap");
 
     MACHINES.forEach((machine) => {
-      const denoms = machine.type === "coin" ? COIN_DENOMS : BILL_DENOMS;
       const card = document.createElement("div");
       card.className = "card";
       card.dataset.machine = machine.key;
-
-      const rows = denoms.map(({ key, value, label }) => `
-        <div class="denom-row">
-          <div class="label"><span class="coin-badge">${value}</span> ${label}</div>
-          <div class="stepper">
-            <button type="button" class="stepper-btn stepper-minus" data-key="${key}" aria-label="減少一個${label}">−</button>
-            <input type="number" min="0" step="1" inputmode="numeric" class="denom-input" data-key="${key}" value="0">
-            <button type="button" class="stepper-btn stepper-plus" data-key="${key}" aria-label="增加一個${label}">+</button>
-          </div>
-          <div class="subtotal" data-sub="${key}">$0</div>
-        </div>
-      `).join("");
 
       const price = PRICE_PER_WASH[machine.key];
 
       card.innerHTML = `
         <div class="machine-header">
           <span class="section-title">${machine.label}</span>
-          <span class="amount machine-total">$0</span>
         </div>
-        ${price ? `<p class="hint machine-washes" style="margin:-8px 0 8px;">洗了 <strong>0</strong> 次(每次 $${price}）</p>` : ""}
-        ${rows}
+        ${price ? `<p class="hint machine-washes" style="margin:0 0 8px;">洗了 <strong>0</strong> 次(每次 $${price}）</p>` : ""}
+        <input type="number" min="0" step="1" inputmode="numeric" class="machine-amount" placeholder="0">
       `;
       machinesWrap.appendChild(card);
 
-      card.querySelectorAll(".denom-input").forEach((input) => {
-        input.addEventListener("input", () => {
-          recalcMachine(card, denoms);
-          recalcGrandTotal();
-        });
-      });
-
-      card.querySelectorAll(".stepper-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const key = btn.dataset.key;
-          const input = card.querySelector(`.denom-input[data-key="${key}"]`);
-          const delta = btn.classList.contains("stepper-plus") ? 1 : -1;
-          input.value = Math.max(0, (parseInt(input.value, 10) || 0) + delta);
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-        });
+      card.querySelector(".machine-amount").addEventListener("input", () => {
+        recalcMachine(card);
+        recalcGrandTotal();
       });
     });
 
-    function recalcMachine(card, denoms) {
-      let total = 0;
-      denoms.forEach(({ key, value }) => {
-        const count = parseInt(card.querySelector(`.denom-input[data-key="${key}"]`).value, 10) || 0;
-        const subtotal = count * value;
-        total += subtotal;
-        card.querySelector(`[data-sub="${key}"]`).textContent = formatMoney(subtotal);
-      });
-      card.querySelector(".machine-total").textContent = formatMoney(total);
+    function recalcMachine(card) {
+      const total = parseInt(card.querySelector(".machine-amount").value, 10) || 0;
 
       const price = PRICE_PER_WASH[card.dataset.machine];
       const washesEl = card.querySelector(".machine-washes strong");
@@ -168,14 +126,7 @@
     function recalcGrandTotal() {
       let grandTotal = 0;
       machinesWrap.querySelectorAll(".card").forEach((card) => {
-        const machine = MACHINES.find((m) => m.key === card.dataset.machine);
-        const denoms = machine.type === "coin" ? COIN_DENOMS : BILL_DENOMS;
-        let total = 0;
-        denoms.forEach(({ key, value }) => {
-          const count = parseInt(card.querySelector(`.denom-input[data-key="${key}"]`).value, 10) || 0;
-          total += count * value;
-        });
-        grandTotal += total;
+        grandTotal += parseInt(card.querySelector(".machine-amount").value, 10) || 0;
       });
       document.getElementById("total-amount").textContent = formatMoney(grandTotal);
     }
@@ -196,21 +147,14 @@
       const showWashes = collectedAt >= "2026-03-01";
       const rows = MACHINES.map((machine) => {
         const card = machinesWrap.querySelector(`[data-machine="${machine.key}"]`);
-        let total = 0;
-        ALL_DENOMS.forEach(({ key, value }) => {
-          const input = card.querySelector(`.denom-input[data-key="${key}"]`);
-          total += (input ? parseInt(input.value, 10) || 0 : 0) * value;
-        });
+        const total = parseInt(card.querySelector(".machine-amount").value, 10) || 0;
 
         const price = PRICE_PER_WASH[machine.key];
         const washNote = showWashes && price ? `洗了 ${Math.floor(total / price)} 次` : null;
         const note = [washNote, userNote].filter(Boolean).join("；") || null;
 
-        const row = { collected_at: collectedAt, machine: machine.key, note };
-        ALL_DENOMS.forEach(({ key }) => {
-          const input = card.querySelector(`.denom-input[data-key="${key}"]`);
-          row[key] = input ? parseInt(input.value, 10) || 0 : 0;
-        });
+        const row = { collected_at: collectedAt, machine: machine.key, note, manual_total: total };
+        ALL_DENOMS.forEach((key) => { row[key] = 0; });
         return row;
       });
 
@@ -229,14 +173,10 @@
       }
 
       successMsg.textContent = "已儲存!可以繼續輸入下一批,或點上面「看分析」查看營收。";
-      machinesWrap.querySelectorAll(".denom-input").forEach((input) => {
-        input.value = 0;
+      machinesWrap.querySelectorAll(".machine-amount").forEach((input) => {
+        input.value = "";
       });
-      machinesWrap.querySelectorAll(".card").forEach((card) => {
-        const machine = MACHINES.find((m) => m.key === card.dataset.machine);
-        const denoms = machine.type === "coin" ? COIN_DENOMS : BILL_DENOMS;
-        recalcMachine(card, denoms);
-      });
+      machinesWrap.querySelectorAll(".card").forEach((card) => recalcMachine(card));
       recalcGrandTotal();
       document.getElementById("note").value = "";
     });
