@@ -36,7 +36,7 @@
 
     <div class="card">
       <p class="section-title">一次補登多筆過去的記錄</p>
-      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期、機台跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。如果舊資料沒有分機台,機台選「總收入(舊資料,無機台明細)」,硬幣紙鈔都可以填;如果連面額都不知道、只記得當天總共收多少,可以直接填最右邊的「總金額」欄位就好。</p>
+      <p class="hint">適合把記帳本上的舊資料一次打完:每一列填一天的日期、機台跟面額數量,打完按「送出全部」一次存檔。空白的列會自動略過。如果舊資料沒有分機台,機台選「總收入(舊資料,無機台明細)」。不管選哪台機台,只要不知道面額明細、只記得當天總共收多少,都可以直接填最右邊的「總金額」欄位就好,不用拆成硬幣/紙鈔。</p>
 
       <div class="bulk-table-wrap">
         <table class="entries bulk-table">
@@ -138,11 +138,11 @@
     function updateRowMachineType(tr) {
       const machineKey = tr.querySelector(".row-machine").value;
       const machine = MACHINE_OPTIONS.find((m) => m.key === machineKey);
-      const isTotal = !!machine && machine.type === "mixed";
 
+      // 任何機台只要選了,都可以直接填總金額(不一定要拆硬幣/紙鈔),方便補登只知道總額的舊資料
       const manualInput = tr.querySelector(".row-manual-total");
-      manualInput.disabled = !isTotal;
-      if (!isTotal) manualInput.value = "";
+      manualInput.disabled = !machine;
+      if (!machine) manualInput.value = "";
 
       const usingManual = manualTotalValue(tr) !== null;
 
