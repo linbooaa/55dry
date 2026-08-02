@@ -58,7 +58,7 @@
       </div>
 
       <div class="card">
-        <p class="section-title">每週營收趨勢(全部紀錄)</p>
+        <p class="section-title">每週營收趨勢(洗衣機 / 烘衣機 / 總營收,全部紀錄)</p>
         <div class="chart-wrap">
           <canvas id="weekly-chart"></canvas>
         </div>
@@ -72,8 +72,18 @@
       </div>
 
       <div class="card">
-        <p class="section-title">投幣機現鈔趨勢(不計入營收)</p>
-        <p class="hint" style="margin-top:-4px;">投幣機現鈔不算店裡的營收,不會加進上面的統計數字,這裡單獨看它自己的走勢。</p>
+        <p class="section-title">投幣機現鈔(不計入營收)</p>
+        <p class="hint" style="margin-top:-4px;">投幣機現鈔不算店裡的營收,不會加進上面的統計數字,這裡單獨看它自己的金額。</p>
+        <div class="stat-grid">
+          <div class="stat-card stat-card--month">
+            <div class="stat-label">🗓️ 投幣機現鈔本月</div>
+            <div class="stat-value" id="stat-exchange-month">$0</div>
+          </div>
+          <div class="stat-card stat-card--total">
+            <div class="stat-label">💰 投幣機現鈔累計</div>
+            <div class="stat-value" id="stat-exchange-total">$0</div>
+          </div>
+        </div>
         <div class="chart-wrap">
           <canvas id="exchange-chart"></canvas>
         </div>
@@ -121,6 +131,8 @@
 
     // 投幣機現鈔不算店裡營收,統計和趨勢圖都要排除它
     const NON_REVENUE_MACHINES = ["exchange"];
+    const WASH_MACHINES = ["wash_1", "wash_2", "wash_3", "wash_4", "wash_total"];
+    const DRY_MACHINES = ["dry_1", "dry_2", "dry_3", "dry_total"];
 
     let allRows = [];
     let weeklyChart, monthlyChart, exchangeChart;
@@ -201,6 +213,16 @@
       document.getElementById("stat-avg").textContent = revenueRows.length
         ? formatMoney(grandTotal / revenueRows.length)
         : "$0";
+
+      const exchangeRows = allRows.filter((r) => NON_REVENUE_MACHINES.includes(r.machine));
+      let exchangeMonthTotal = 0, exchangeGrandTotal = 0;
+      exchangeRows.forEach((row) => {
+        const t = rowTotal(row);
+        exchangeGrandTotal += t;
+        if (monthStart(row.collected_at) === thisMonth) exchangeMonthTotal += t;
+      });
+      document.getElementById("stat-exchange-month").textContent = formatMoney(exchangeMonthTotal);
+      document.getElementById("stat-exchange-total").textContent = formatMoney(exchangeGrandTotal);
     }
 
     // 從最早一筆紀錄那一週開始,一路列到本週為止,每週一筆
@@ -231,29 +253,53 @@
 
     function renderWeeklyChart() {
       const revenueRows = allRows.filter((r) => !NON_REVENUE_MACHINES.includes(r.machine));
+      const washRows = revenueRows.filter((r) => WASH_MACHINES.includes(r.machine));
+      const dryRows = revenueRows.filter((r) => DRY_MACHINES.includes(r.machine));
       const weeks = allWeeksSoFar();
-      const totals = weeks.map((w) =>
-        revenueRows.filter((r) => weekStart(r.collected_at) === w).reduce((sum, r) => sum + rowTotal(r), 0)
-      );
+
+      const sumFor = (rows, w) => rows.filter((r) => weekStart(r.collected_at) === w).reduce((sum, r) => sum + rowTotal(r), 0);
+      const washTotals = weeks.map((w) => sumFor(washRows, w));
+      const dryTotals = weeks.map((w) => sumFor(dryRows, w));
+      const grandTotals = weeks.map((w) => sumFor(revenueRows, w));
 
       if (weeklyChart) weeklyChart.destroy();
       weeklyChart = new Chart(document.getElementById("weekly-chart"), {
         type: "line",
         data: {
           labels: weeks.map((w) => w.slice(5)),
-          datasets: [{
-            label: "週營收",
-            data: totals,
-            borderColor: "#2563eb",
-            backgroundColor: "rgba(37,99,235,0.1)",
-            fill: true,
-            tension: 0.3,
-            pointRadius: 3,
-          }],
+          datasets: [
+            {
+              label: "洗衣機營收",
+              data: washTotals,
+              borderColor: "#2563eb",
+              backgroundColor: "rgba(37,99,235,0.1)",
+              fill: false,
+              tension: 0.3,
+              pointRadius: 3,
+            },
+            {
+              label: "烘衣機營收",
+              data: dryTotals,
+              borderColor: "#d97706",
+              backgroundColor: "rgba(217,119,6,0.1)",
+              fill: false,
+              tension: 0.3,
+              pointRadius: 3,
+            },
+            {
+              label: "總營收",
+              data: grandTotals,
+              borderColor: "#16a34a",
+              backgroundColor: "rgba(22,163,74,0.1)",
+              fill: false,
+              tension: 0.3,
+              pointRadius: 3,
+            },
+          ],
         },
         options: {
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: { legend: { display: true } },
           scales: { y: { beginAtZero: true } },
         },
       });
