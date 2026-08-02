@@ -92,6 +92,18 @@
       <div class="card">
         <p class="section-title">所有收款紀錄</p>
         <p class="hint" style="margin-top:-4px;">點欄位標題可以排序,再點一次是反過來排。</p>
+
+        <div class="filter-bar">
+          <label>從<input type="date" id="filter-start"></label>
+          <label>到<input type="date" id="filter-end"></label>
+          <label>機台
+            <select id="filter-machine">
+              <option value="">全部機台</option>
+            </select>
+          </label>
+          <button type="button" class="icon-btn" id="filter-clear-btn">清除篩選</button>
+        </div>
+
         <div id="entries-wrap">
           <table class="entries">
             <thead>
@@ -144,6 +156,24 @@
     })();
 
     document.getElementById("signout-btn").addEventListener("click", signOut);
+
+    const filterMachineSelect = document.getElementById("filter-machine");
+    MACHINE_OPTIONS.forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = m.key;
+      opt.textContent = m.label;
+      filterMachineSelect.appendChild(opt);
+    });
+
+    ["filter-start", "filter-end", "filter-machine"].forEach((id) => {
+      document.getElementById(id).addEventListener("change", renderTable);
+    });
+    document.getElementById("filter-clear-btn").addEventListener("click", () => {
+      document.getElementById("filter-start").value = "";
+      document.getElementById("filter-end").value = "";
+      document.getElementById("filter-machine").value = "";
+      renderTable();
+    });
 
     function escapeHtml(s) {
       const div = document.createElement("div");
@@ -368,9 +398,22 @@
     let sortKey = "collected_at";
     let sortDir = "desc";
 
+    function filteredRows() {
+      const start = document.getElementById("filter-start").value;
+      const end = document.getElementById("filter-end").value;
+      const machine = document.getElementById("filter-machine").value;
+
+      return allRows.filter((r) => {
+        if (start && r.collected_at < start) return false;
+        if (end && r.collected_at > end) return false;
+        if (machine && r.machine !== machine) return false;
+        return true;
+      });
+    }
+
     function sortedRows() {
       const dir = sortDir === "asc" ? 1 : -1;
-      return [...allRows].sort((a, b) => {
+      return filteredRows().sort((a, b) => {
         let av, bv;
         if (sortKey === "total") {
           av = rowTotal(a);
@@ -419,13 +462,15 @@
       tbody.innerHTML = "";
       updateSortHeaders();
 
-      if (!allRows.length) {
+      const rows = sortedRows();
+      if (!rows.length) {
+        emptyState.textContent = allRows.length ? "沒有符合篩選條件的紀錄" : "還沒有任何收款紀錄";
         emptyState.style.display = "block";
         return;
       }
       emptyState.style.display = "none";
 
-      sortedRows().forEach((row) => {
+      rows.forEach((row) => {
         const tr = document.createElement("tr");
         renderViewRow(tr, row);
         tbody.appendChild(tr);

@@ -547,6 +547,27 @@ input.edit-input.edit-num {
   height: 220px;
 }
 
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+.filter-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.filter-bar input, .filter-bar select {
+  width: auto;
+}
+
 .loading {
   text-align: center;
   color: var(--muted);
