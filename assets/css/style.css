@@ -481,6 +481,18 @@ table.entries tbody tr:hover {
 
 table.entries td.amount { text-align: right; font-weight: 700; }
 
+table.entries th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+table.entries th.sortable:hover { color: var(--blue); }
+
+table.entries th.sortable .sort-arrow {
+  margin-left: 3px;
+  opacity: 0.6;
+}
+
 .icon-btn {
   background: none;
   border: none;

@@ -90,16 +90,17 @@
       </div>
 
       <div class="card">
-        <p class="section-title">最近收款紀錄</p>
+        <p class="section-title">所有收款紀錄</p>
+        <p class="hint" style="margin-top:-4px;">點欄位標題可以排序,再點一次是反過來排。</p>
         <div id="entries-wrap">
           <table class="entries">
             <thead>
               <tr>
-                <th>日期</th>
-                <th>機台</th>
+                <th class="sortable" data-sort="collected_at">日期</th>
+                <th class="sortable" data-sort="machine">機台</th>
                 <th>硬幣(10/50)</th>
                 <th>紙鈔(100/500/1000)</th>
-                <th style="text-align:right;">總計</th>
+                <th class="sortable" data-sort="total" style="text-align:right;">總計</th>
                 <th>備注</th>
                 <th></th>
               </tr>
@@ -364,10 +365,59 @@
       });
     }
 
+    let sortKey = "collected_at";
+    let sortDir = "desc";
+
+    function sortedRows() {
+      const dir = sortDir === "asc" ? 1 : -1;
+      return [...allRows].sort((a, b) => {
+        let av, bv;
+        if (sortKey === "total") {
+          av = rowTotal(a);
+          bv = rowTotal(b);
+        } else if (sortKey === "machine") {
+          av = MACHINE_LABELS[a.machine] || a.machine;
+          bv = MACHINE_LABELS[b.machine] || b.machine;
+        } else {
+          av = a[sortKey];
+          bv = b[sortKey];
+        }
+        if (av < bv) return -1 * dir;
+        if (av > bv) return 1 * dir;
+        return 0;
+      });
+    }
+
+    function updateSortHeaders() {
+      document.querySelectorAll("th.sortable").forEach((th) => {
+        th.querySelector(".sort-arrow")?.remove();
+        if (th.dataset.sort === sortKey) {
+          const arrow = document.createElement("span");
+          arrow.className = "sort-arrow";
+          arrow.textContent = sortDir === "asc" ? "▲" : "▼";
+          th.appendChild(arrow);
+        }
+      });
+    }
+
+    document.querySelectorAll("th.sortable").forEach((th) => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        if (sortKey === key) {
+          sortDir = sortDir === "asc" ? "desc" : "asc";
+        } else {
+          sortKey = key;
+          sortDir = "desc";
+        }
+        renderTable();
+      });
+    });
+
     function renderTable() {
       const tbody = document.getElementById("entries-body");
       const emptyState = document.getElementById("empty-state");
       tbody.innerHTML = "";
+      updateSortHeaders();
 
       if (!allRows.length) {
         emptyState.style.display = "block";
@@ -375,7 +425,7 @@
       }
       emptyState.style.display = "none";
 
-      allRows.slice(0, 30).forEach((row) => {
+      sortedRows().forEach((row) => {
         const tr = document.createElement("tr");
         renderViewRow(tr, row);
         tbody.appendChild(tr);
