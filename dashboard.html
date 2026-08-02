@@ -217,10 +217,18 @@
 
       if (weeklyChart) weeklyChart.destroy();
       weeklyChart = new Chart(document.getElementById("weekly-chart"), {
-        type: "bar",
+        type: "line",
         data: {
           labels: weeks.map((w) => w.slice(5)),
-          datasets: [{ label: "週營收", data: totals, backgroundColor: "#2563eb", borderRadius: 4 }],
+          datasets: [{
+            label: "週營收",
+            data: totals,
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37,99,235,0.1)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+          }],
         },
         options: {
           maintainAspectRatio: false,
