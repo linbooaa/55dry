@@ -82,6 +82,7 @@
                 <th>硬幣(10/50)</th>
                 <th>紙鈔(100/500/1000)</th>
                 <th style="text-align:right;">總計</th>
+                <th>備注</th>
                 <th></th>
               </tr>
             </thead>
@@ -119,6 +120,12 @@
     })();
 
     document.getElementById("signout-btn").addEventListener("click", signOut);
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s ?? "";
+      return div.innerHTML;
+    }
 
     function formatMoney(n) {
       return "$" + Math.round(n).toLocaleString("zh-TW");
@@ -295,6 +302,7 @@
         <td>${showCoin ? `${row.coin_10} / ${row.coin_50}` : "-"}</td>
         <td>${showBill ? `${row.bill_100} / ${row.bill_500} / ${row.bill_1000}` : isManual ? "只有總額" : "-"}</td>
         <td class="amount">${formatMoney(rowTotal(row))}</td>
+        <td>${escapeHtml(row.note) || "-"}</td>
         <td class="row-actions">
           <button class="icon-btn edit-btn">編輯</button>
           <button class="icon-btn danger delete-btn">刪除</button>
@@ -340,6 +348,7 @@
         <td>${MACHINE_LABELS[row.machine] || row.machine}</td>
         ${denomCells}
         <td class="amount edit-total">${formatMoney(rowTotal(row))}</td>
+        <td><input type="text" class="edit-input edit-note" value="${escapeHtml(row.note)}"></td>
         <td class="row-actions">
           <button class="icon-btn save-btn">儲存</button>
           <button class="icon-btn cancel-btn">取消</button>
@@ -376,7 +385,8 @@
           alert("請選擇日期");
           return;
         }
-        const updates = { collected_at: collectedAt };
+        const noteVal = tr.querySelector(".edit-note").value.trim();
+        const updates = { collected_at: collectedAt, note: noteVal || null };
         if (isTotalMachine) {
           const manualVal = parseInt(tr.querySelector(".edit-manual-total").value, 10);
           updates.manual_total = manualVal > 0 ? manualVal : null;
