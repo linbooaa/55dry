@@ -28,7 +28,7 @@ function formatLocalDate(d) {
   return `${y}-${m}-${day}`;
 }
 
-// 機台清單:洗衣機、烘衣機、投幣機購買收的是硬幣;投幣機換幣收的是紙鈔
+// 機台清單:洗衣機、烘衣機、投幣機購買收的是硬幣;投幣機現鈔收的是紙鈔
 const MACHINES = [
   { key: "wash_1", label: "洗衣機 1", type: "coin" },
   { key: "wash_2", label: "洗衣機 2", type: "coin" },
@@ -37,7 +37,7 @@ const MACHINES = [
   { key: "dry_1", label: "烘衣機 1", type: "coin" },
   { key: "dry_2", label: "烘衣機 2", type: "coin" },
   { key: "dry_3", label: "烘衣機 3", type: "coin" },
-  { key: "exchange", label: "投幣機換幣", type: "bill" },
+  { key: "exchange", label: "投幣機現鈔", type: "bill" },
   { key: "purchase", label: "投幣機購買", type: "coin" },
 ];
 
