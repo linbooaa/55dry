@@ -77,6 +77,14 @@
     ];
     const ALL_DENOMS = [...COIN_DENOMS, ...BILL_DENOMS];
 
+    // 每台洗衣機洗一次的價格,用來自動換算洗了幾次(烘衣機、投幣機沒有固定單價,不列在這裡)
+    const PRICE_PER_WASH = {
+      wash_1: 60,
+      wash_2: 60,
+      wash_3: 60,
+      wash_4: 100,
+    };
+
     (async () => {
       await requireSession();
     })();
@@ -108,11 +116,14 @@
         </div>
       `).join("");
 
+      const price = PRICE_PER_WASH[machine.key];
+
       card.innerHTML = `
         <div class="machine-header">
           <span class="section-title">${machine.label}</span>
           <span class="amount machine-total">$0</span>
         </div>
+        ${price ? `<p class="hint machine-washes" style="margin:-8px 0 8px;">洗了 <strong>0</strong> 次(每次 $${price}）</p>` : ""}
         ${rows}
       `;
       machinesWrap.appendChild(card);
@@ -144,6 +155,13 @@
         card.querySelector(`[data-sub="${key}"]`).textContent = formatMoney(subtotal);
       });
       card.querySelector(".machine-total").textContent = formatMoney(total);
+
+      const price = PRICE_PER_WASH[card.dataset.machine];
+      const washesEl = card.querySelector(".machine-washes strong");
+      if (price && washesEl) {
+        washesEl.textContent = Math.floor(total / price);
+      }
+
       return total;
     }
 
