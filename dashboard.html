@@ -58,7 +58,7 @@
       </div>
 
       <div class="card">
-        <p class="section-title">近 12 週營收趨勢</p>
+        <p class="section-title">每週營收趨勢(全部紀錄)</p>
         <div class="chart-wrap">
           <canvas id="weekly-chart"></canvas>
         </div>
@@ -183,15 +183,20 @@
         : "$0";
     }
 
-    function lastNWeeks(n) {
+    // 從最早一筆紀錄那一週開始,一路列到本週為止,每週一筆
+    function allWeeksSoFar() {
+      if (!allRows.length) return [weekStart(formatLocalDate(new Date()))];
+
+      const earliest = allRows.reduce((min, r) => (r.collected_at < min ? r.collected_at : min), allRows[0].collected_at);
       const weeks = [];
-      const d = new Date();
-      for (let i = n - 1; i >= 0; i--) {
-        const wd = new Date(d);
-        wd.setDate(wd.getDate() - i * 7);
-        weeks.push(weekStart(formatLocalDate(wd)));
+      let cursor = new Date(weekStart(earliest) + "T00:00:00");
+      const end = new Date(weekStart(formatLocalDate(new Date())) + "T00:00:00");
+
+      while (cursor <= end) {
+        weeks.push(formatLocalDate(cursor));
+        cursor.setDate(cursor.getDate() + 7);
       }
-      return [...new Set(weeks)];
+      return weeks;
     }
 
     function lastNMonths(n) {
@@ -205,7 +210,7 @@
     }
 
     function renderWeeklyChart() {
-      const weeks = lastNWeeks(12);
+      const weeks = allWeeksSoFar();
       const totals = weeks.map((w) =>
         allRows.filter((r) => weekStart(r.collected_at) === w).reduce((sum, r) => sum + rowTotal(r), 0)
       );
